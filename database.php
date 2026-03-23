@@ -12,10 +12,10 @@
     catch(mysqli_sql_exception) {
         echo "Connection failed: ";
     }
-
+/*
     if($conn) {
          echo "Connected successfully"; 
     } 
-
+*/
 
 ?>

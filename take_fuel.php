@@ -2,65 +2,37 @@
 session_start();
 include 'database.php';
 
-// Check if vehicle is logged in
-if(!isset($_SESSION['vehicle_id'])){
-    header("Location: login.php");
-    exit;
-}
+if(isset($_POST['take_fuel'])){
+    $vehicle_id = $_POST['vehicle_id'];
+    $fuel_amount = $_POST['fuel_amount'];
 
-$vehicle_id = $_SESSION['vehicle_id'];
-
-if(isset($_POST['fuel_amount'])){
-    $fuel_amount = (float)$_POST['fuel_amount'];
-
-    // Fetch vehicle quota and total fuel taken this week
-    $stmt = $conn->prepare("
-        SELECT v.v_type, fq.max_litters
-        FROM vehicles v
-        JOIN fuel_quota fq ON v.v_type = fq.v_type
-        WHERE v.id = ?
-    ");
+    // Get vehicle quota
+    $stmt = $conn->prepare("SELECT v.*, fq.max_litters FROM vehicles v JOIN fuel_quota fq ON v.v_type=fq.v_type WHERE v.id=?");
     $stmt->bind_param("i", $vehicle_id);
     $stmt->execute();
     $vehicle = $stmt->get_result()->fetch_assoc();
 
-    // Calculate total fuel taken this week
-    $week_start = date('Y-m-d 00:00:00', strtotime('monday this week'));
-    $week_end   = date('Y-m-d 23:59:59', strtotime('sunday this week'));
+    if(!$vehicle){
+        die("Vehicle not found");
+    }
 
-    $stmt2 = $conn->prepare("
-        SELECT SUM(fuel_taken) as total_taken
-        FROM fuel_transactions
-        WHERE vehicle_id = ? AND trans_date BETWEEN ? AND ?
-    ");
-    $stmt2->bind_param("iss", $vehicle_id, $week_start, $week_end);
+    // Check remaining fuel (you can create a fuel_log table to track weekly usage)
+    $stmt2 = $conn->prepare("SELECT SUM(fuel_amount) AS total FROM fuel_log WHERE vehicle_id=? AND WEEK(log_date)=WEEK(NOW())");
+    $stmt2->bind_param("i", $vehicle_id);
     $stmt2->execute();
-    $total_taken = $stmt2->get_result()->fetch_assoc()['total_taken'] ?? 0;
+    $res = $stmt2->get_result()->fetch_assoc();
+    $used = $res['total'] ?? 0;
+    $remaining = $vehicle['max_litters'] - $used;
 
-    $remaining = $vehicle['max_litters'] - $total_taken;
-
-    // Check if requested amount is available
     if($fuel_amount > $remaining){
-        $_SESSION['error'] = "You cannot take more than your remaining quota ($remaining liters).";
-        header("Location: vehicle_dashboard.php");
-        exit;
+        die("You cannot take more than remaining fuel: $remaining L");
     }
 
-    // Insert fuel transaction
-    $stmt3 = $conn->prepare("
-        INSERT INTO fuel_transactions (vehicle_id, fuel_taken, trans_date)
-        VALUES (?, ?, NOW())
-    ");
-    $stmt3->bind_param("id", $vehicle_id, $fuel_amount);
-    if($stmt3->execute()){
-        $_SESSION['success'] = "Fuel taken successfully: $fuel_amount liters.";
-    } else {
-        $_SESSION['error'] = "Error taking fuel. Try again.";
-    }
+    // Insert fuel log
+    $stmt3 = $conn->prepare("INSERT INTO fuel_log (vehicle_id, fuel_amount, log_date) VALUES (?, ?, NOW())");
+    $stmt3->bind_param("ii", $vehicle_id, $fuel_amount);
+    $stmt3->execute();
 
-    header("Location: vehicle_dashboard.php");
-    exit;
-} else {
-    header("Location: vehicle_dashboard.php");
-    exit;
+    echo "✅ Fuel approved! You took $fuel_amount L. Remaining this week: ".($remaining - $fuel_amount)." L";
 }
+?>
