@@ -68,7 +68,7 @@
     /* Add a subtle Sri Lanka flag-inspired accent */
     .accent {
         display: inline-block;
-        width: 50px;
+        width: 300px;
         height: 5px;
         background: linear-gradient(to right, #ffcc00, #de2910, #007e3a);
         margin: 20px 0;
@@ -81,9 +81,10 @@
 
 <div class="container">
     <h1>Fuel Pass System</h1>
+    
     <div class="accent"></div>
     <p>Manage vehicle fuel quotas and take fuel easily with your QR code.</p>
-    <button class="btn" onclick="window.location.href='register.php'">Register</button>
+    <button class="btn" onclick="window.location.href='user_form.php'">Register</button>
     <button class="btn" onclick="window.location.href='login.php'">Login</button>
 </div>
 
